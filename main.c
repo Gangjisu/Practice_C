@@ -70,6 +70,7 @@ int Swap(SCard **ppNode1,SCard **ppNode2);
 
 
 //////////////////////////////////////
+
 int FPrintScoreGrade(const char *fName,const SRecord *pHead)
 {
     FILE *pFile = 0;
@@ -99,18 +100,29 @@ int FPrintScoreGrade(const char *fName,const SRecord *pHead)
     return 0;
 }
 
-int JustMark(SRecord **ppRecord, const int num, const char letter)
+
+int JustMark(SRecord **ppRecord, const int num, const char letter, int *gradeOverflow)
 {
     if(*ppRecord)
     {
         for(int i = 0; i < num; i++)
         {
             (*ppRecord)->sGrade.grade = letter;
+
+            if (i == (num - 1) && (*ppRecord)->pNext != NULL && (*ppRecord)->sGrade.totScore == (*ppRecord)->pNext->sGrade.totScore) {
+                while ((*ppRecord)->pNext != NULL && (*ppRecord)->sGrade.totScore == (*ppRecord)->pNext->sGrade.totScore) {
+                    (*ppRecord) = (*ppRecord)->pNext;
+                    (*ppRecord)->sGrade.grade = letter;
+                    *gradeOverflow += 1;
+                }
+            }
             (*ppRecord) = (*ppRecord)->pNext;
         }
     }
+
     return 0;
 }
+
 
 int MarkGrade(const SRecord* pHead)
 {
@@ -119,15 +131,34 @@ int MarkGrade(const SRecord* pHead)
 
     double totNum = GetLength2(pHead);
 #define MyRate 0.3
+    int check = 0;
     int As = floor(totNum * MyRate);
     int Bs = floor(totNum * MyRate);
     int Cs = floor(totNum * MyRate);
-    int Fs = totNum - (As+ Bs + Cs);
+    int Fs = totNum - (As + Bs + Cs); //인원 수에서 나머지 인원을 뺀수
 
-    JustMark(&pCur,As,'A');
-    JustMark(&pCur,Bs,'B');
-    JustMark(&pCur,Cs,'C');
-    JustMark(&pCur,Fs,'F');
+    JustMark(&pCur,As,'A',&check); //As는 A인원 수
+    if(check != 0) //함수로 묶을 수 있음.
+    {
+        As += check;
+        Bs -= check;
+        check = 0;
+    }
+    JustMark(&pCur,Bs,'B',&check); //As->pNext 인 상태
+    if(check != 0)
+    {
+        Bs += check;
+        Cs -= check;
+        check = 0;
+    }
+    JustMark(&pCur,Cs,'C',&check);
+    if(check != 0)
+    {
+        Cs += check;
+        Fs -= check;
+        check = 0;
+    }
+    JustMark(&pCur,Fs,'F',&check);
 
     return 0;
 }
@@ -135,19 +166,18 @@ int MarkGrade(const SRecord* pHead)
 int BuildGrade(SRecord *pHead)
 {
     SRecord *pCur = pHead;
-    ///리스트 empty - 예외처리 생략함
 
     while(pCur)
     {
-        pCur->sGrade.totScore = pCur->sScore.korScore +
-                                pCur->sScore.engScore + pCur->sScore.mathScore;
+        pCur->sGrade.totScore = pCur->sScore.korScore + pCur->sScore.engScore + pCur->sScore.mathScore;
 
         pCur = pCur -> pNext;
     }
 
     int len = GetLength2(pHead);
     BubbleSort2(&pHead,len,DESC,SRECORD);
-    MarkGrade(pHead);
+
+    MarkGrade(pHead); //과제2
 
     return 0;
 }
@@ -393,11 +423,13 @@ int BubbleSort2(void **ppHead,int num, SortOdr odr,MyType type)
                 for (int i = num - 1; i > 0; i--) {
                     pCur = (SCard *) *ppHead;
                     for (int j = 0; j < i; j++) {
-                        if (odr == ASC) {
+
+                        if (odr == ASC ) {
                             if (pCur->score > pCur->pNext->score)
                                 Swap(pCur, pCur->pNext);
-                        } else {
-                            if (pCur->score < pCur->pNext->score)
+                        }
+                        else {
+                            if (pCur->score > pCur->pNext->score)
                                 Swap(pCur, pCur->pNext);
                         }
 
@@ -745,16 +777,6 @@ int BubbleSort(SCard **ppHead,int num)
 
     return 0;
 }
-
-//errno_t fopen_s(FILE **f, const char *name, const char *mode) {
-//    errno_t ret = 0;
-//    assert(f);
-//    *f = fopen(name, mode);
-//    /* Can't be sure about 1-to-1 mapping of errno and MS' errno_t */
-//    if (!*f)
-//        ret = errno;
-//    return ret;
-//}
 
 int main()
 {
